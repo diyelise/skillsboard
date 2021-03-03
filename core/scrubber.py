@@ -18,7 +18,7 @@ class Scrub:
         time_marker = (datetime.now() - timedelta(minutes=30)).isoformat()
         pages = 0
         active_vacancies = []
-        url = 'https://api.hh.ru/vacancies?type=open&text={0}&date_from={1}&page={2}&per_page=100'
+        url = 'https://api.hh.ru/vacancies?type=open&text={0}&date_from={1}&page={2}&per_page=100&only_with_salary=true'
         data = await Scrub.fetch(session, url.format(lang, time_marker, 0))
         if data.get('status') == 200:
             body = data.get('body')
@@ -117,13 +117,28 @@ class Scrub:
         """
         salary = value.get('salary')
         if salary:
+            _curr = salary.get('currency')
             _from = salary.get('from')
             _to = salary.get('to')
+            _gross = salary.get('gross')
+
+            _from = int(_from) if _from else 0
+            _to = int(_to) if _to else 0
+
+            if _curr == 'EUR':
+                _from = _from * 91
+                _to = _to * 91
+            if _curr == 'USD':
+                _from = _from * 74
+                _to = _to * 74
+
+            if _gross:
+                _from = round(_from * 0.87)
+                _to = round(_to * 0.87)
+
             return {
-                'from': int(_from) if _from else 0,
-                'to': int(_to) if _to else 0,
-                'curr': salary.get('currency'),
-                'gross': salary.get('gross'),
+                'from': _from,
+                'to': _to,
             }
 
     @staticmethod

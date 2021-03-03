@@ -1,10 +1,12 @@
+#!/home/enviroments/skb_env/bin/python3.7
+# -*- coding: utf-8 -*-
 import asyncpg
 import asyncio
 import scrubber
 import env
 from itertools import product
 from aiohttp import ClientSession
-
+from random import randint as rnd
 
 class UploadData:
 
@@ -26,6 +28,7 @@ class UploadData:
         associate нужно т.к вакансия может содержать
         Python, python, Go, golang. По умолчанию равна искомой строке
         """
+        await asyncio.sleep(delay=rnd(5, 15))
         try:
             list_to_add = []
             async with ClientSession() as client:
@@ -58,11 +61,28 @@ class UploadData:
         tasks = [
             asyncio.create_task(self.get_info(db, lang='python')),
             asyncio.create_task(self.get_info(db, lang='Python', associate='python')),
-            asyncio.create_task(self.get_info(db, lang='golang'))
+            asyncio.create_task(self.get_info(db, lang='golang')),
+            asyncio.create_task(self.get_info(db, lang='Golang', associate='golang')),
+            asyncio.create_task(self.get_info(db, lang='Java', associate='java')),
+            asyncio.create_task(self.get_info(db, lang='java', associate='java')),
+            asyncio.create_task(self.get_info(db, lang='C/С++', associate='c/c++')),
+            asyncio.create_task(self.get_info(db, lang='javascript')),
         ]
         done, _ = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
         for obj in done:
-            print(obj.result())
+            status, err = obj.result()
+        async with db.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute("""
+                    update sb.public.vacancies vac
+                    set reg = rg.reg_name
+                    from (select city_name, reg_name from regions) as rg
+                    where vac.city = rg.city_name
+                """)
+                await conn.execute("""
+                    delete from sb.public.vacancies
+                    where reg is null
+                """)
         await db.close()
 
     async def init_db(self):

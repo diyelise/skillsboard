@@ -15,7 +15,17 @@ class UploadData:
         self.loop.run_until_complete(self.start())
         self.loop.close()
 
-    async def get_info(self, db, lang):
+    async def get_info(self, db, lang: str, associate: str = None):
+        """
+        Поиск вакансий по выбранному языку
+        :param db: сессия бд
+        :param lang: строка поиска для языка
+        :param associate: ассоциация с языком
+        :return:
+
+        associate нужно т.к вакансия может содержать
+        Python, python, Go, golang. По умолчанию равна искомой строке
+        """
         try:
             list_to_add = []
             async with ClientSession() as client:
@@ -27,23 +37,27 @@ class UploadData:
                     done, _ = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
                     list_to_add.extend([obj.result() for obj in done if obj.result() is not None])
 
-                for res in list_to_add:
-                    await db.execute("""
-                        insert into sb.public.vacancies
-                        (vac_id, city_id, city, experience, schedule, employment, salary_from, salary_to, lang_type)
-                        values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-                        on conflict (vac_id) do nothing;
-                    """, res.get('id'), res.get('city_id'), res.get('city'),
-                                     res.get('exp'), res.get('sch'), res.get('emp'),
-                                     res.get('s_from'), res.get('s_to'), lang)
+                lang = associate if associate else lang
+                async with db.acquire() as conn:
+                    for res in list_to_add:
+                        async with conn.transaction():
+                            await conn.execute("""
+                                insert into sb.public.vacancies
+                                (vac_id, city_id, city, experience, schedule, employment, salary_from, salary_to, lang_type)
+                                values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                                on conflict (vac_id) do nothing;
+                            """, res.get('id'), res.get('city_id'), res.get('city'),
+                                             res.get('exp'), res.get('sch'), res.get('emp'),
+                                             res.get('s_from'), res.get('s_to'), lang)
             return f'OK {lang}', None
         except Exception as err:
             return f'BAD {lang}', str(err)
 
     async def start(self):
-        db = await self.init_db()
+        db = await self.init_db()  # pool
         tasks = [
             asyncio.create_task(self.get_info(db, lang='python')),
+            asyncio.create_task(self.get_info(db, lang='Python', associate='python')),
             asyncio.create_task(self.get_info(db, lang='golang'))
         ]
         done, _ = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
@@ -52,7 +66,7 @@ class UploadData:
         await db.close()
 
     async def init_db(self):
-        return await asyncpg.connect(dsn=env.admin_db)
+        return await asyncpg.create_pool(dsn=env.admin_db)
 
     async def update_regions(self, db):
         async with ClientSession() as client:

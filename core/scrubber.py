@@ -16,7 +16,6 @@ class Scrub:
         :return:
         """
         time_marker = (datetime.now() - timedelta(minutes=30)).isoformat()
-        pages = 0
         active_vacancies = []
         url = 'https://api.hh.ru/vacancies?type=open&text={0}&date_from={1}&page={2}&per_page=100&only_with_salary=true'
         data = await Scrub.fetch(session, url.format(lang, time_marker, 0))
@@ -126,8 +125,8 @@ class Scrub:
             _to = int(_to) if _to else 0
 
             if _curr == 'EUR':
-                _from = _from * 91
-                _to = _to * 91
+                _from = _from * 89
+                _to = _to * 89
             if _curr == 'USD':
                 _from = _from * 74
                 _to = _to * 74

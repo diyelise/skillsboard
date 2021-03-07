@@ -67,6 +67,9 @@ class UploadData:
             asyncio.create_task(self.get_info(db, lang='java', associate='java')),
             asyncio.create_task(self.get_info(db, lang='C/С++', associate='c/c++')),
             asyncio.create_task(self.get_info(db, lang='javascript')),
+            asyncio.create_task(self.get_info(db, lang='Javascript', associate='javascript')),
+            asyncio.create_task(self.get_info(db, lang='php')),
+            asyncio.create_task(self.get_info(db, lang='Swift', associate='swift'))
         ]
         done, _ = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
         for obj in done:
@@ -78,6 +81,7 @@ class UploadData:
                     set reg = rg.reg_name
                     from (select city_name, reg_name from regions) as rg
                     where vac.city = rg.city_name
+                    and vac.reg is null
                 """)
                 await conn.execute("""
                     delete from sb.public.vacancies
